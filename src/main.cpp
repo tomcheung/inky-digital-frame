@@ -1,3 +1,5 @@
+#include <string>
+#include <iostream>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
@@ -136,18 +138,33 @@ void draw_jpeg(std::string filename, int x, int y, int w, int h) {
 
 void blink_led(void * pvParameters) {
   InkyFrame::LED* led = (InkyFrame::LED*) pvParameters;
+
   while (true) {
-   inky.led(*led, 100);
-   vTaskDelay(500/portTICK_PERIOD_MS);
-   inky.led(*led, 0);
-   vTaskDelay(500/portTICK_PERIOD_MS);
+    inky.led(*led, 100);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    vTaskDelay(500/portTICK_PERIOD_MS);
+    inky.led(*led, 0);
+
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    vTaskDelay(500/portTICK_PERIOD_MS);
   }
 }
 
-void web_server_task(__unused void *params) {
-  while (true) {
-    server.poll_data();
-  }
+TaskHandle_t paint_task = NULL;
+
+void paint_image(void * pvParameters) {
+  std::string* p = (std::string*) pvParameters;
+  std::string file = std::string(*p);
+
+  std::cout << "Displaying image: " << file << std::endl;
+
+  draw_jpeg(file, 0, 0, inky.width, inky.height);
+  inky.update();
+
+  printf("Finish paint\n");
+
+  paint_task = NULL;
+  vTaskDelete(NULL);
 }
 
 void main_task(__unused void *params) {
@@ -159,14 +176,10 @@ void main_task(__unused void *params) {
 
   printf("Init...\n");
 
-  server = WebServer();
-
   TaskHandle_t ledTask = NULL;
 
   auto led = InkyFrame::LED::LED_CONNECTION;
   xTaskCreate(blink_led, "LED", 256, (void *) &led, TEST_TASK_PRIORITY, &ledTask);
-
-  server.connect_wifi();
 
   printf("mounting sd card.. ");
   fr = f_mount(&fs, "", 1);
@@ -176,24 +189,90 @@ void main_task(__unused void *params) {
     vTaskDelete(ledTask);
     vTaskDelete(NULL);
   }
+
   printf("done!\n");
+
+  printf("connect wifi\n");
+  server.connect_wifi();
+
 
   vTaskDelete(ledTask);
   server.start_server();
 
-  xTaskCreate(web_server_task, "SERVER", TEST_TASK_STACK_SIZE, (void *) &server, TEST_TASK_PRIORITY, NULL);
+  while (true) {
+    server.poll_data();
 
-  // inky.set_pen(InkyFrame::Pen::WHITE);
-  // inky.clear();
+    auto msg = server.get_message();
+    switch (msg.event) {
+      case WebServer::Event::upload_image: 
+      {
+        int image_slot = msg.new_image_slot;
 
-  // printf("Displaying file: %s\n", "jwst1.jpg");
-  // inky.set_pen(InkyFrame::Pen::BLACK);
-  // draw_jpeg("jwst1.jpg", 0, 0, inky.width, inky.height);
+         printf("upload_image %i\n", image_slot);
+        if (image_slot<0 || image_slot >4) {
+          printf("Invalid slot\n");
+          break;
+        }
 
-  // inky.set_font("sans");
-  // inky.text("Inky frame", Point(13, 10), 0, 1.0f);
+        FIL *fil = new FIL;
+        if(f_open(fil, "upload.tmp", FA_READ)) { 
+          printf("Upload file missing\n");
+          break;
+        }
 
-  // inky.update();
+        jpeg.open(
+          "upload.tmp",
+          jpegdec_open_callback,
+          jpegdec_close_callback,
+          jpegdec_read_callback,
+          jpegdec_seek_callback,
+          nullptr // Try jpegdec_draw_posterize_callback
+        );
+
+        int w = jpeg.getWidth(), h = jpeg.getHeight(), error = jpeg.getLastError();
+
+        char image_name[15];
+
+        sprintf(image_name, "image_%i.jpg", image_slot); 
+
+        printf("Uploading image width %i, hegiht %i, error %i\n", w, h, error);
+
+        if (w>0 && h>0 && error == 0) {
+          f_unlink(image_name);
+          auto result = f_rename("upload.tmp", image_name);
+          printf("Rename to %s result: %i\n", image_name, result);
+        } else {
+          f_unlink("upload.tmp");
+        }
+
+        f_close(fil);
+
+        auto name = std::string(image_name);
+        xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
+      }
+        break;
+      case WebServer::Event::none: {
+        std::string name = "";
+        if (inky.pressed(InkyFrame::Button::BUTTON_A)) {
+          name = "image_0.jpg";
+        } else if (inky.pressed(InkyFrame::Button::BUTTON_B)) {
+          name = "image_1.jpg";
+        } else if (inky.pressed(InkyFrame::Button::BUTTON_C)) {
+          name = "image_2.jpg";
+        } else if (inky.pressed(InkyFrame::Button::BUTTON_D)) {
+          name = "image_3.jpg";
+        }  else if (inky.pressed(InkyFrame::Button::BUTTON_E)) {
+          name = "image_4.jpg";
+        }
+
+        if (!name.empty() && paint_task == NULL) {
+          xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
+        }
+        break;
+      }
+    }
+  }
+
   inky.sleep();
 }
 

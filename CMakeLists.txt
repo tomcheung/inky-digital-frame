@@ -24,7 +24,7 @@ add_executable(${NAME}
     src/main.cpp
     src/mongoose/mongoose.c
     src/web_server/web_server.cpp
-    src/packed_fs.c
+    packed_fs.c
 )
 
 target_compile_definitions(${NAME} PUBLIC INKY_FRAME_7)
@@ -42,8 +42,6 @@ target_include_directories(${NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src/include
     ${CMAKE_CURRENT_LIST_DIR}/src/mongoose/include
 )
-
-# add_subdirectory(web_server)
 
 # Don't forget to link the libraries you need!
 target_link_libraries(${NAME}
@@ -64,7 +62,11 @@ target_link_libraries(${NAME}
 pico_add_extra_outputs(${NAME})
 
 pico_enable_stdio_usb(${NAME} 1)
-pico_enable_stdio_uart(${NAME} 0) # set 1 for pico debugprob
+pico_enable_stdio_uart(${NAME} 0)
+
+# for pico debugprob
+# pico_enable_stdio_usb(${NAME} 0)
+# pico_enable_stdio_uart(${NAME} 1)
 
 # Set up files for the release packages
 install(FILES
