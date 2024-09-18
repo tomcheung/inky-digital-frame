@@ -1,40 +1,45 @@
-<script lang="ts">
-let image: FileList
+<script>
+
+import { Radio, Fileupload, Label, Button } from 'flowbite-svelte';
+
+/**
+ * @type {import('./ImageData.js').default} cropperData
+ */
+export let cropperData
 let slot = 0
 
-async function handleOnSubmit(event: SubmitEvent) {
-    const formData = new FormData()
+let availableSlot = [
+    { index: 0, name: 'A' },
+    { index: 1, name: 'B' },
+    { index: 2, name: 'C' },
+    { index: 3, name: 'D' },
+    { index: 4, name: 'E' },
+]
 
-    const fileInput = (document.getElementById('image') as HTMLInputElement)
-    const imageFile = fileInput.files![0]
+async function handleOnSubmit(event) {
+    const data = await cropperData.getCroppedImageData()
 
-    const reader = new FileReader()
-    reader.readAsArrayBuffer(imageFile)
-    
-    reader.onload = function () {
-        const result = fetch("/upload_image?slot="+slot, {
-            method: 'POST',
-            body: reader.result
-        }).then(function (result) {
-            console.log(result);            
-        })
+    if (!data) {
+        console.log("Missing image")
     }
 
+    const result = fetch("/upload_image?slot="+slot, {
+        method: 'POST',
+        body: data
+    })
+    
     return false
 }
 </script>
 
-<form on:submit|preventDefault={handleOnSubmit}>
-    <div>Selected slot: {slot}</div>
-    <div>
-        {#each [0,1,2,3] as number}
-        <input type="radio" id="slot{number}" name="slot" value={number} bind:group={slot}/>
-        <label for="slot{number}">{number}</label>
+<form class="self-stretch flex flex-col items-stretch gap-3" on:submit|preventDefault={handleOnSubmit}>
+    <p class="font-semibold text-gray-900 dark:text-white">Upload to image slot:</p>
+    <ul class="items-center w-full rounded-lg border border-gray-200 sm:flex dark:bg-gray-800 dark:border-gray-600 divide-x rtl:divide-x-reverse divide-gray-200 dark:divide-gray-600">
+        {#each availableSlot as { index, name }}
+        <li class="w-full">
+            <Radio class="p-3" id="slot{index}" name="slot" value={index} bind:group={slot}>{name}</Radio>
+        </li>
         {/each}
-    </div>
-    <div class="group">
-        <label for="image">Upload a picture: </label>
-        <input accept="image/png, image/jpeg" id="image" name="image" type="file" />
-    </div>
-    <button type="submit">Submit</button>
+    </ul>
+    <Button color="red" type="submit">Upload</Button>
 </form>

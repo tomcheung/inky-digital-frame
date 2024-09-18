@@ -21,7 +21,6 @@
 using namespace pimoroni;
 
 FATFS fs;
-FRESULT fr;
 
 InkyFrame inky;
 
@@ -137,20 +136,19 @@ void draw_jpeg(std::string filename, int x, int y, int w, int h) {
 }
 
 void blink_led(void * pvParameters) {
-  InkyFrame::LED* led = (InkyFrame::LED*) pvParameters;
+  InkyFrame::LED* p_led = (InkyFrame::LED*) pvParameters;
+  InkyFrame::LED led = *p_led;
 
   while (true) {
-    inky.led(*led, 100);
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    inky.led(led, 100);
     vTaskDelay(500/portTICK_PERIOD_MS);
-    inky.led(*led, 0);
-
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    inky.led(led, 0);
     vTaskDelay(500/portTICK_PERIOD_MS);
   }
 }
 
 TaskHandle_t paint_task = NULL;
+TaskHandle_t paint_led_task = NULL;
 
 void paint_image(void * pvParameters) {
   std::string* p = (std::string*) pvParameters;
@@ -164,6 +162,14 @@ void paint_image(void * pvParameters) {
   printf("Finish paint\n");
 
   paint_task = NULL;
+  if(paint_led_task != NULL) {
+    vTaskDelete(paint_led_task);
+    inky.led(InkyFrame::LED_A, 0);
+    inky.led(InkyFrame::LED_B, 0);
+    inky.led(InkyFrame::LED_C, 0);
+    inky.led(InkyFrame::LED_D, 0);
+    inky.led(InkyFrame::LED_E, 0);
+  }
   vTaskDelete(NULL);
 }
 
@@ -182,6 +188,8 @@ void main_task(__unused void *params) {
   xTaskCreate(blink_led, "LED", 256, (void *) &led, TEST_TASK_PRIORITY, &ledTask);
 
   printf("mounting sd card.. ");
+
+  FRESULT fr;
   fr = f_mount(&fs, "", 1);
   if (fr != FR_OK) {
     printf("Failed to mount SD card, error: %d\n", fr);
@@ -197,15 +205,16 @@ void main_task(__unused void *params) {
 
 
   vTaskDelete(ledTask);
+  inky.led(InkyFrame::LED::LED_CONNECTION, 100);
   server.start_server();
 
   while (true) {
     server.poll_data();
 
     auto msg = server.get_message();
+    auto led = InkyFrame::LED::LED_ACTIVITY;
     switch (msg.event) {
-      case WebServer::Event::upload_image: 
-      {
+      case WebServer::Event::upload_image: {
         int image_slot = msg.new_image_slot;
 
          printf("upload_image %i\n", image_slot);
@@ -247,25 +256,52 @@ void main_task(__unused void *params) {
 
         f_close(fil);
 
+        switch (image_slot) {
+        case 0:
+          led = InkyFrame::LED::LED_A;
+          break;
+        case 1:
+          led = InkyFrame::LED::LED_B;
+          break;
+        case 2:
+          led = InkyFrame::LED::LED_C;
+          break;
+        case 3:
+          led = InkyFrame::LED::LED_D;
+          break;
+        case 4:
+          led = InkyFrame::LED::LED_E;
+          break;
+        }
+
         auto name = std::string(image_name);
-        xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
-      }
+        if (!name.empty() && paint_task == NULL) {
+          xTaskCreate(blink_led, "PaintLed", 256, (void *) &led, TEST_TASK_PRIORITY, &paint_led_task);
+          xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
+        }
         break;
+      }
       case WebServer::Event::none: {
         std::string name = "";
         if (inky.pressed(InkyFrame::Button::BUTTON_A)) {
           name = "image_0.jpg";
+          led = InkyFrame::LED::LED_A;
         } else if (inky.pressed(InkyFrame::Button::BUTTON_B)) {
           name = "image_1.jpg";
+          led = InkyFrame::LED::LED_B;
         } else if (inky.pressed(InkyFrame::Button::BUTTON_C)) {
           name = "image_2.jpg";
+          led = InkyFrame::LED::LED_C;
         } else if (inky.pressed(InkyFrame::Button::BUTTON_D)) {
           name = "image_3.jpg";
+          led = InkyFrame::LED::LED_D;
         }  else if (inky.pressed(InkyFrame::Button::BUTTON_E)) {
           name = "image_4.jpg";
+          led = InkyFrame::LED::LED_E;
         }
 
         if (!name.empty() && paint_task == NULL) {
+          xTaskCreate(blink_led, "PaintLed", 256, (void *) &led, TEST_TASK_PRIORITY, &paint_led_task);
           xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
         }
         break;

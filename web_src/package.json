@@ -1,21 +1,23 @@
 {
-  "name": "image-gallery",
+  "name": "inky-frame-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.node.json"
+    "preview": "vite preview"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.1.1",
-    "@tsconfig/svelte": "^5.0.4",
+    "autoprefixer": "^10.4.20",
+    "flowbite": "^2.5.1",
+    "flowbite-svelte": "^0.46.16",
     "svelte": "^4.2.18",
-    "svelte-check": "^3.8.5",
-    "tslib": "^2.6.3",
-    "typescript": "^5.5.3",
+    "tailwindcss": "^3.4.9",
     "vite": "^5.4.1"
+  },
+  "dependencies": {
+    "cropperjs": "^2.0.0-rc.2"
   }
 }
