@@ -13,6 +13,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "inky_frame_manager.hpp"
 #include "web_server.hpp"
 
 #define TEST_TASK_PRIORITY				( tskIDLE_PRIORITY + 1UL )
@@ -27,6 +28,7 @@ InkyFrame inky;
 JPEGDEC jpeg;
 
 WebServer server;
+InkyFrameManager inky_manager;
 
 struct {
   int x, y, w, h;
@@ -161,7 +163,6 @@ void paint_image(void * pvParameters) {
 
   printf("Finish paint\n");
 
-  paint_task = NULL;
   if(paint_led_task != NULL) {
     vTaskDelete(paint_led_task);
     inky.led(InkyFrame::LED_A, 0);
@@ -169,14 +170,53 @@ void paint_image(void * pvParameters) {
     inky.led(InkyFrame::LED_C, 0);
     inky.led(InkyFrame::LED_D, 0);
     inky.led(InkyFrame::LED_E, 0);
-  }
+  } 
+  
+  paint_task = NULL;
   vTaskDelete(NULL);
+}
+
+void print_image(std::string image_name, InkyFrame::LED led) {
+  if (paint_task != NULL) {
+    vTaskDelete(paint_task);
+    vTaskDelete(paint_led_task);
+  }
+  xTaskCreate(blink_led, "PaintLed", 256, (void *) &led, TEST_TASK_PRIORITY, &paint_led_task);
+  xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &image_name, TEST_TASK_PRIORITY, &paint_task);
+}
+
+void print_ip_address_task(void * pvParameters) {
+  std::string* msg_ptr = (std::string*) pvParameters;
+  std::string message = "IP:";
+  message.append(server.get_ip_address());
+
+  inky.set_pen(InkyFrame::WHITE);
+  inky.clear();
+
+  inky.set_font("sans");
+  inky.set_thickness(3);
+  inky.set_pen(InkyFrame::BLACK);
+  int32_t tw = inky.measure_text(message, 2);
+  inky.text(message, {(inky.width / 2) - (tw / 2), inky.height / 2}, 2);
+  inky.update();
+
+  paint_task = NULL;
+  vTaskDelete(NULL);
+}
+
+void print_ip_address() {
+  if (paint_task != NULL) {
+    vTaskDelete(paint_task);
+  }
+  xTaskCreate(print_ip_address_task, "PaintMessage", TEST_TASK_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &paint_task);
 }
 
 void main_task(__unused void *params) {
   stdio_init_all();
   cyw43_arch_init();
   inky.init();
+
+  inky_manager.init(&inky);
 
   vTaskDelay(100/portTICK_PERIOD_MS);
 
@@ -201,110 +241,122 @@ void main_task(__unused void *params) {
   printf("done!\n");
 
   printf("connect wifi\n");
-  server.connect_wifi();
 
+  int wifi_result = server.connect_wifi();
 
   vTaskDelete(ledTask);
-  inky.led(InkyFrame::LED::LED_CONNECTION, 100);
-  server.start_server();
+
+  if (wifi_result == 0) {
+    inky.led(InkyFrame::LED::LED_CONNECTION, 100);
+    server.start_server();
+  } else {
+    inky.led(InkyFrame::LED::LED_CONNECTION, 0);
+  }
 
   while (true) {
-    server.poll_data();
+    WebServer::Event event = WebServer::Event::none;
+    if (wifi_result == 0) {
+      server.poll_data();
 
-    auto msg = server.get_message();
-    auto led = InkyFrame::LED::LED_ACTIVITY;
-    switch (msg.event) {
-      case WebServer::Event::upload_image: {
-        int image_slot = msg.new_image_slot;
+      WebServer::Message msg = server.get_message();
+      event = msg.event;
+      auto led = InkyFrame::LED::LED_ACTIVITY;
 
-         printf("upload_image %i\n", image_slot);
-        if (image_slot<0 || image_slot >4) {
-          printf("Invalid slot\n");
+      switch (event) {
+        case WebServer::Event::upload_image: {
+          int image_slot = msg.new_image_slot;
+
+          printf("upload_image %i\n", image_slot);
+          if (image_slot<0 || image_slot >4) {
+            printf("Invalid slot\n");
+            break;
+          }
+
+          FIL *fil = new FIL;
+          if(f_open(fil, "upload.tmp", FA_READ)) { 
+            printf("Upload file missing\n");
+            break;
+          }
+
+          jpeg.open(
+            "upload.tmp",
+            jpegdec_open_callback,
+            jpegdec_close_callback,
+            jpegdec_read_callback,
+            jpegdec_seek_callback,
+            nullptr // Try jpegdec_draw_posterize_callback
+          );
+
+          int w = jpeg.getWidth(), h = jpeg.getHeight(), error = jpeg.getLastError();
+
+          char image_name[15];
+
+          sprintf(image_name, "image_%i.jpg", image_slot); 
+
+          printf("Uploading image width %i, hegiht %i, error %i\n", w, h, error);
+
+          if (w>0 && h>0 && error == 0) {
+            f_unlink(image_name);
+            auto result = f_rename("upload.tmp", image_name);
+            printf("Rename to %s result: %i\n", image_name, result);
+          } else {
+            f_unlink("upload.tmp");
+          }
+
+          f_close(fil);
+
+          switch (image_slot) {
+          case 0:
+            led = InkyFrame::LED::LED_A;
+            break;
+          case 1:
+            led = InkyFrame::LED::LED_B;
+            break;
+          case 2:
+            led = InkyFrame::LED::LED_C;
+            break;
+          case 3:
+            led = InkyFrame::LED::LED_D;
+            break;
+          case 4:
+            led = InkyFrame::LED::LED_E;
+            break;
+          }
+
+          auto name = std::string(image_name);
+          if (!name.empty() && paint_task == NULL) {
+            xTaskCreate(blink_led, "PaintLed", 256, (void *) &led, TEST_TASK_PRIORITY, &paint_led_task);
+            xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
+          }
           break;
         }
-
-        FIL *fil = new FIL;
-        if(f_open(fil, "upload.tmp", FA_READ)) { 
-          printf("Upload file missing\n");
+        case WebServer::Event::none:
           break;
-        }
-
-        jpeg.open(
-          "upload.tmp",
-          jpegdec_open_callback,
-          jpegdec_close_callback,
-          jpegdec_read_callback,
-          jpegdec_seek_callback,
-          nullptr // Try jpegdec_draw_posterize_callback
-        );
-
-        int w = jpeg.getWidth(), h = jpeg.getHeight(), error = jpeg.getLastError();
-
-        char image_name[15];
-
-        sprintf(image_name, "image_%i.jpg", image_slot); 
-
-        printf("Uploading image width %i, hegiht %i, error %i\n", w, h, error);
-
-        if (w>0 && h>0 && error == 0) {
-          f_unlink(image_name);
-          auto result = f_rename("upload.tmp", image_name);
-          printf("Rename to %s result: %i\n", image_name, result);
-        } else {
-          f_unlink("upload.tmp");
-        }
-
-        f_close(fil);
-
-        switch (image_slot) {
-        case 0:
-          led = InkyFrame::LED::LED_A;
-          break;
-        case 1:
-          led = InkyFrame::LED::LED_B;
-          break;
-        case 2:
-          led = InkyFrame::LED::LED_C;
-          break;
-        case 3:
-          led = InkyFrame::LED::LED_D;
-          break;
-        case 4:
-          led = InkyFrame::LED::LED_E;
-          break;
-        }
-
-        auto name = std::string(image_name);
-        if (!name.empty() && paint_task == NULL) {
-          xTaskCreate(blink_led, "PaintLed", 256, (void *) &led, TEST_TASK_PRIORITY, &paint_led_task);
-          xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
-        }
-        break;
       }
-      case WebServer::Event::none: {
-        std::string name = "";
-        if (inky.pressed(InkyFrame::Button::BUTTON_A)) {
-          name = "image_0.jpg";
-          led = InkyFrame::LED::LED_A;
-        } else if (inky.pressed(InkyFrame::Button::BUTTON_B)) {
-          name = "image_1.jpg";
-          led = InkyFrame::LED::LED_B;
-        } else if (inky.pressed(InkyFrame::Button::BUTTON_C)) {
-          name = "image_2.jpg";
-          led = InkyFrame::LED::LED_C;
-        } else if (inky.pressed(InkyFrame::Button::BUTTON_D)) {
-          name = "image_3.jpg";
-          led = InkyFrame::LED::LED_D;
-        }  else if (inky.pressed(InkyFrame::Button::BUTTON_E)) {
-          name = "image_4.jpg";
-          led = InkyFrame::LED::LED_E;
-        }
+    }
 
-        if (!name.empty() && paint_task == NULL) {
-          xTaskCreate(blink_led, "PaintLed", 256, (void *) &led, TEST_TASK_PRIORITY, &paint_led_task);
-          xTaskCreate(paint_image, "Paint", TEST_TASK_STACK_SIZE, (void *) &name, TEST_TASK_PRIORITY, &paint_task);
-        }
-        break;
+    if (event == WebServer::Event::none) {
+      auto event = inky_manager.poll();
+
+      switch (event) {
+        case InkyFrameManager::Event::IMAGE_A:
+          print_image("image_0.jpg", InkyFrame::LED::LED_A);
+          break;
+        case InkyFrameManager::Event::IMAGE_B:
+          print_image("image_1.jpg", InkyFrame::LED::LED_B);
+          break;
+        case InkyFrameManager::Event::IMAGE_C:
+          print_image("image_2.jpg", InkyFrame::LED::LED_C);
+          break;
+        case InkyFrameManager::Event::IMAGE_D:
+          print_image("image_3.jpg", InkyFrame::LED::LED_D);
+          break;
+        case InkyFrameManager::Event::IMAGE_E:
+          print_image("image_4.jpg", InkyFrame::LED::LED_E);
+          break;
+        case InkyFrameManager::Event::PRINT_IP_ADDRESS:
+          print_ip_address();
+          break;
       }
     }
   }

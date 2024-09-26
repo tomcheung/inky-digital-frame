@@ -19,6 +19,7 @@ class WebServer {
     void stop_server();
     void poll_data();
     int connect_wifi();
+    std::string get_ip_address();
     WebServer::Message get_message();
 
   private:

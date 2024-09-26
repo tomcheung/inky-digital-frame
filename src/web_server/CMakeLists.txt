@@ -1,8 +1,3 @@
-# set(${NAME} webserver)
+file(GLOB SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/*.cpp")
 
-# add_library(webserver INTERFACE)
-
-
-target_sources(${NAME} PRIVATE
-  ${CMAKE_CURRENT_LIST_DIR}/web_server.cpp
-)
+set(SRC_FILES ${SOURCE_FILES} PARENT_SCOPE)

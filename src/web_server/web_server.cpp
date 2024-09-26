@@ -1,15 +1,16 @@
 #include "web_server.hpp"
 #include <stdio.h>
 #include <string.h>
+#include <sstream> 
+#include <iostream>
+#include <memory>
 
-// #include "pico/stdlib.h"
+#include "drivers/fatfs/ff.h"
 #include "pico/cyw43_arch.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "mongoose.h"
-
-#include "wifi.hpp"
 
 struct WebServer::MgWrapper {
   mg_mgr mgr;
@@ -24,7 +25,7 @@ void WebServer::start_server() {
   mg_log_set(MG_LL_INFO);
   auto mgr = &mg_wrapper->mgr;
 
-  printf("mg_mgr_init\n");
+  printf("start_server\n");
   mg_mgr_init(mgr);
   mg_http_listen(mgr, "http://0.0.0.0:80", WebServer::eventHandler, NULL); // Web listener
   mgr->userdata = this;
@@ -32,7 +33,7 @@ void WebServer::start_server() {
 
 void WebServer::stop_server() {
   auto mgr = mg_wrapper->mgr;
-  printf("mg_mgr_free\n");
+  printf("stop_server\n");
   mg_mgr_free(&mgr);
   delete mg_wrapper;
 }
@@ -147,15 +148,47 @@ int WebServer::connect_wifi() {
   printf("Connect wifi...\n");
 
   cyw43_arch_enable_sta_mode();
-  
-  int code = cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000);
+
+  std::unique_ptr<FIL> fils(new FIL);
+  FRESULT result = f_open(fils.get(), "wifi.txt", FA_READ);
+
+  int code = -1;
+
+  #if defined(WIFI_SSID) && defined(WIFI_PASSWORD)
+   code = cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000);
+  #else
+   std::cout << "Cannot find WIFI_SSID or WIFI_PASSWORD config, read from wifi.txt" << std::endl;
+    if (result == FR_OK) {
+      char buffer[50] = {};
+      f_gets(buffer, 50, fils.get());
+      std::string ssid = std::string(buffer);
+
+      f_gets(buffer, 50, fils.get());
+      std::string password = std::string(buffer);
+
+      std::cout << "Try to connect with SSID: " << ssid << std::endl;
+
+      code = cyw43_arch_wifi_connect_timeout_ms(ssid.c_str(), password.c_str(), CYW43_AUTH_WPA2_AES_PSK, 30000);
+    } else {
+      std::cout << "Unable to read wifi.txt, code: " << result;
+    }
+
+    f_close(fils.get());
+  #endif
 
   if (code) {
     printf("Failed to connect! code: %i\n", code);
   } else {
     auto ip_addr = cyw43_state.netif[CYW43_ITF_STA].ip_addr.addr;
-    printf("Connected. IP Address: %lu.%lu.%lu.%lu\n", ip_addr & 0xFF, (ip_addr >> 8) & 0xFF, (ip_addr >> 16) & 0xFF, ip_addr >> 24);
+    std::cout << "Connected. IP Address: " << get_ip_address() << std::endl;
   }
 
   return code;
+}
+
+std::string WebServer::get_ip_address() {
+   auto ip_addr = cyw43_state.netif[CYW43_ITF_STA].ip_addr.addr;
+   std::ostringstream ss;
+   ss << (ip_addr & 0xFF) << "." << ((ip_addr >> 8) & 0xFF) << "." << ((ip_addr >> 16) & 0xFF)  << "." <<  (ip_addr >> 24);
+   return ss.str();
 }

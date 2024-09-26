@@ -11,6 +11,8 @@ include(pico_sdk_import.cmake)
 include(pimoroni_pico_import.cmake)
 include(FreeRTOS_Kernel_import.cmake)
 
+include(wifi_config.cmake OPTIONAL RESULT_VARIABLE WIFI_CONFIG_PATH)
+
 # Gooey boilerplate
 project(${NAME} C CXX ASM)
 set(CMAKE_C_STANDARD 11)
@@ -20,11 +22,14 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 # Add your source files
+add_subdirectory(src/web_server)
+
 add_executable(${NAME}
     src/main.cpp
+    src/inky_frame_manager.cpp
     src/mongoose/mongoose.c
-    src/web_server/web_server.cpp
     packed_fs.c
+    ${SRC_FILES}
 )
 
 target_compile_definitions(${NAME} PUBLIC INKY_FRAME_7)
@@ -42,6 +47,24 @@ target_include_directories(${NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src/include
     ${CMAKE_CURRENT_LIST_DIR}/src/mongoose/include
 )
+
+if (WIFI_CONFIG_PATH STREQUAL "NOTFOUND")
+    message("Missing WIFI Config file")
+endif()
+
+if (WIFI_SSID OR WIFI_PASSWORD)
+    message("WIFI_SSID set to ${WIFI_SSID}")
+
+    target_compile_definitions(${NAME} PRIVATE
+        WIFI_SSID=\"${WIFI_SSID}\"
+        WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
+    )
+else()
+    message("Missing WIFI_SSID or WIFI_PASSWORD, you need setup wifi in cd card")
+    set(WIFI_SSID, "")
+    set(WIFI_PASSWORD, "")
+endif()
+
 
 # Don't forget to link the libraries you need!
 target_link_libraries(${NAME}
