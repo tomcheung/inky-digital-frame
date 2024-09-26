@@ -1,4 +1,50 @@
-# Pico C++ Boilerplate Project <!-- omit in toc -->
+# Inky frame image manager
+
+An application for upload an image though web server, build with C++ and Svelte js
+
+This project is base on template https://github.com/pimoroni/pico-boilerplate
+
+## Wifi setup
+- Using `wifi_config.cmake`:
+  1. Clone `wifi_config.cmake.sample` and rename it into `wifi_config.cmake` (`wifi_config.cmake` won't track in this repo)
+  2. Replace `<ENTER_YOUR_SSID>` and `<ENTER_YOUR_WIFI_PASSWORD>` with your Wifi SSID and password
+
+- Using `wifi.txt`:
+  If you use the provided image directly instead of compile by your own
+  1. Create `wifi.txt` in SD card, put it in root directory, file format need to be FAT
+  2. Place the wifi SSID and password in following format in two separate line, when the program can't find compile marco `WIFI_SSID` and `WIFI_PASSWORD`, it will try to read the wifi config form SD card in runtime
+  
+     ```
+     <YOUR_SSID>
+     <YOUR_WIFI_PASSWORD>
+     ```
+
+## Structure
+
+This applicatioin is build using following stack
+
+### Web front-end
+- Svelte
+- flowbite-svelte: UI library integrated with Svelte,
+- cropperjs: Handle image cropping
+
+Refer to web_src/package.json for full dependency
+
+When integrated the front-end source into Pico W web server, it need compile and bundle all the web asset,
+than convert into `packed_fs.c` (binary array to store all static content need to be serve,
+finally host by internal server
+
+Reference to `create_web_packed_fs.sh` for detail about bundle all web content into `packed_fs.c`
+
+### Pico W
+- [mongoose](https://github.com/cesanta/mongoose): Embedded web server for Pico W, for hosting all web content and handle image upload request
+- [pimoroni-pico](https://github.com/pimoroni/pimoroni-pico): Offical inky frame driver
+- RTOS
+
+## Compile instruction
+[WIP]
+
+---
 
 This project is intended as a starting point for working with the Pico SDK and Pimoroni Libraries in C++.
 
