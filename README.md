@@ -4,6 +4,27 @@ An application for upload an image though web server, build with C++ and Svelte 
 
 This project is base on template https://github.com/pimoroni/pico-boilerplate
 
+## Preparing your build environment
+
+Install build requirements:
+
+```bash
+sudo apt update
+sudo apt install cmake gcc-arm-none-eabi build-essential
+```
+
+Make sure clone project using **--recurse-submodules**, to download all the required dependency though git submodule:
+
+```bash
+git clone --recurse-submodules https://github.com/tomcheung/inky-digital-frame.git
+```
+
+You can also add `--shallow-submodules` to reduce the time for clone all dependency 
+
+## Compile the project
+
+_wip_
+
 ## Wifi setup
 - Using `wifi_config.cmake`:
   1. Clone `wifi_config.cmake.sample` and rename it into `wifi_config.cmake` (`wifi_config.cmake` won't track in this repo)
@@ -40,9 +61,6 @@ Reference to `create_web_packed_fs.sh` for detail about bundle all web content i
 - [mongoose](https://github.com/cesanta/mongoose): Embedded web server for Pico W, for hosting all web content and handle image upload request
 - [pimoroni-pico](https://github.com/pimoroni/pimoroni-pico): Offical inky frame driver
 - RTOS
-
-## Compile instruction
-[WIP]
 
 ---
 
