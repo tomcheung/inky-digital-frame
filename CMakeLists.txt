@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(PICO_SDK_PATH ${CMAKE_SOURCE_DIR}/../pico/pico-sdk)
-set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/../FreeRTOS-Kernel)
+set(PICO_SDK_PATH ${CMAKE_SOURCE_DIR}/pico-sdk)
+set(PIMORONI_PICO_PATH ${CMAKE_SOURCE_DIR}/pimoroni-pico)
+set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS-Kernel)
 
-# Change your executable name to something creative!
-set(NAME inky-digital-frame) # <-- Name your project/executable here!
+set(NAME inky-digital-frame)
 set(PICO_BOARD pico_w)
 
 include(pico_sdk_import.cmake)
