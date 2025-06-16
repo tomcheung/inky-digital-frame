@@ -8,10 +8,31 @@ This project is base on template https://github.com/pimoroni/pico-boilerplate
 
 Install build requirements:
 
+### Debian Linux
+
 ```bash
 sudo apt update
 sudo apt install cmake gcc-arm-none-eabi build-essential
+suto apt install libusb-1.0-0-dev # Install libusb for picotool to flash pico
 ```
+
+### macOS
+
+```
+# Install cmake
+brew install cmake
+
+# Install libusb for picotool to flash pico
+brew install libusb
+
+# Install the arm eabi toolchain
+brew install --cask gcc-arm-embedded
+
+# The equivalent to build-essential on linux, you probably already have this.
+xcode-select --install
+```
+
+You can reference https://github.com/pimoroni/pimoroni-pico/blob/main/setting-up-the-pico-sdk.md for full setup instruction
 
 Make sure clone project using **--recurse-submodules**, to download all the required dependency though git submodule:
 
@@ -21,9 +42,13 @@ git clone --recurse-submodules https://github.com/tomcheung/inky-digital-frame.g
 
 You can also add `--shallow-submodules` to reduce the time for clone all dependency 
 
+## Initial setup
+
+Run `build_picotool.sh` to compile picotool, to support automatically upload uf2 file without drag and drop manually (make sure install libusb / libusb-1.0-0-dev, otherwise you will got `ERROR: Unknown command: load`)
+
 ## Compile the project
 
-_[wip]_
+Run `./flash.sh`
 
 ### Prepare Visual Studio Code
 

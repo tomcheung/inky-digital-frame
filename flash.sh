@@ -7,10 +7,12 @@ else
     echo "done. P.S.: Consider installing ninja - it's faster"
 fi
 
+PICO_TOOL_PATH=./picotool/build
+
 if [[ $? -eq 0 ]]; then
 # cd -
-picotool load ./build/inky-digital-frame.uf2 -f
-picotool reboot
+$PICO_TOOL_PATH/picotool load ./build/inky-digital-frame.uf2 -f
+$PICO_TOOL_PATH/picotool reboot
 # else
 # cd -
 fi

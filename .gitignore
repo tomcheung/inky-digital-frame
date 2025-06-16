@@ -1,3 +1,8 @@
+.DS_Store
 build/*
 
 wifi_config.cmake
+
+#CMake files
+CMakeCache.txt
+CMakeFiles/
