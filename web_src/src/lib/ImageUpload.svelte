@@ -1,12 +1,16 @@
 <script>
-
+import { preventDefault } from 'svelte/legacy';
 import { Radio, Fileupload, Label, Button } from 'flowbite-svelte';
 
+
 /**
- * @type {import('./ImageData.js').default} cropperData
+ * @typedef {Object} Props
+ * @property {import('./ImageData.js').default} cropperData
  */
-export let cropperData
-let slot = 0
+
+/** @type {Props} */
+let { cropperData } = $props();
+let slot = $state(0)
 
 let availableSlot = [
     { index: 0, name: 'A' },
@@ -17,6 +21,7 @@ let availableSlot = [
 ]
 
 async function handleOnSubmit(event) {
+    event.preventDefault()
     const data = await cropperData.getCroppedImageData()
 
     if (!data) {
@@ -32,7 +37,7 @@ async function handleOnSubmit(event) {
 }
 </script>
 
-<form class="self-stretch flex flex-col items-stretch gap-3" on:submit|preventDefault={handleOnSubmit}>
+<form class="self-stretch flex flex-col items-stretch gap-3" onsubmit={handleOnSubmit}>
     <p class="font-semibold text-gray-900 dark:text-white">Upload to image slot:</p>
     <ul class="items-center w-full rounded-lg border border-gray-200 sm:flex dark:bg-gray-800 dark:border-gray-600 divide-x rtl:divide-x-reverse divide-gray-200 dark:divide-gray-600">
         {#each availableSlot as { index, name }}

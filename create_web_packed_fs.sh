@@ -1,4 +1,5 @@
 cmake -S pack_src -B pack_src/build
+cmake --build ./pack_src/build
 
 cd web_src
 npm install

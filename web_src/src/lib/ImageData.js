@@ -26,6 +26,9 @@ export default class ImageCropperData {
     let canvas = await this.imageCropper.getCropImage()
     const p = new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
+        if (!blob) {
+          reject("Missing image data")
+        }
         const reader = new FileReader();
         reader.addEventListener('loadend', () => {
           const arrayBuffer = reader.result;

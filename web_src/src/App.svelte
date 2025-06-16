@@ -6,18 +6,28 @@
   import ImageUpload from "./lib/ImageUpload.svelte";
   import ImageCropperData from "./lib/ImageData";
 
- 
-  let imageCropperData;
-  let imageCropper;
-  let previewImage;
+  let showPreview = $state(false);
+  let imageCropperData = $state();
+  let imageCropper = $state();
+  let previewImage = $state();
 
-  $: {
+  $effect(() => {
     if (imageCropperData) { 
       imageCropperData.imageCropper = imageCropper
     }
-  }
+  })
 
-  $: showPreview = previewImage != null
+  $effect(() => {
+    if (showPreview) {
+      if (!previewImage) {
+       imageCropperData.getCroppedImage().then((result, error) => {
+        previewImage = result
+       })
+      }
+    } else {
+      previewImage = null
+    }
+  });
 
   /**
    * @param {File} file
@@ -47,10 +57,6 @@
     imageCropperData = null
   }
 
-  async function preview() {
-    previewImage = await imageCropperData.getCroppedImage()
-  }
-
 </script>
 
 <main>
@@ -75,13 +81,13 @@
     {:else}
       <ImageCropper bind:this={imageCropper} image={imageCropperData.rawImageData} />
       <div class="flex flex-row gap-3 self-stretch">
-        <Button class='flex-1' color=blue on:click={preview}>Preview</Button>
+        <Button class='flex-1' color=blue on:click={() => showPreview = true}>Preview</Button>
         <Button class='self-end' color='red' on:click={clearImage}>Clear</Button>
       </div>
       <ImageUpload cropperData={imageCropperData}/>
     {/if}
   </div>
-  <Modal title='Preview' bind:open={showPreview} on:close={() => previewImage = null} autoclose>
+  <Modal title='Preview' bind:open={showPreview} autoclose>
     <img src={previewImage} alt=Preview/>
   </Modal>
  

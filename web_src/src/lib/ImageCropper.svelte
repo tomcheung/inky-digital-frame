@@ -4,35 +4,10 @@
   const previewSize = {width: 400, height: 240}
   let cropperCanvas
   let cropperImage
-  let cropperSelection
-  let isMatchSize = false
-  export let image;
+  let cropperSelection = $state()
+  let isMatchSize = $state(false)
+  let { image } = $props();
 
-  $: {
-    if (cropperImage) {
-      cropperImage.$ready((img) => {
-        const diff = img.width / img.height - 80 / 48
-        let width = 0
-        let height = 0
-        isMatchSize = diff == 0
-        if (diff > 0) {
-          height = img.height / img.width * previewSize.width
-          width = 80 / 48 * height
-        } else {
-          width = img.width / img.height * previewSize.height
-          height = previewSize.height
-        }
-
-        cropperSelection.$change(
-          Math.floor((previewSize.width - width) / 2), 
-          Math.floor((previewSize.height - height) / 2), 
-          Math.floor(width), 
-          Math.floor(height)
-        )
-        shade.$change((previewSize.width - width) / 2, (previewSize.height - height) / 2, width, height);
-      })
-    }
-  }
 
   /**
    * @typedef {Object} Selection - Crop selection
@@ -42,7 +17,7 @@
    * @property {number} height
    */
 
-  let shade;
+  let shade = $state();
 
   function handleSelection(event) {
     /** @type {Selection} */
@@ -72,6 +47,34 @@
   export function getCropImage() {
     return cropperSelection.$toCanvas({width: 800, height: 480})
   }
+
+  $effect(() => {
+    if (!cropperImage) {
+      return
+    }
+    
+    cropperImage.$ready((img) => {
+      const diff = img.width / img.height - 80 / 48
+      let width = 0
+      let height = 0
+      isMatchSize = diff == 0
+      if (diff > 0) {
+        height = img.height / img.width * previewSize.width
+        width = 80 / 48 * height
+      } else {
+        width = img.width / img.height * previewSize.height
+        height = previewSize.height
+      }
+
+      cropperSelection.$change(
+        Math.floor((previewSize.width - width) / 2), 
+        Math.floor((previewSize.height - height) / 2), 
+        Math.floor(width), 
+        Math.floor(height)
+      )
+      shade.$change((previewSize.width - width) / 2, (previewSize.height - height) / 2, width, height);
+    })
+  });
 </script>
 <cropper-canvas background scale-step={0} id="cropper" bind:this={cropperCanvas} disabled={isMatchSize}>
   <cropper-image
@@ -88,7 +91,7 @@
     resizable
     aspect-ratio={80 / 48}
     bind:this={cropperSelection}
-    on:change={handleSelection}
+    onchange={handleSelection}
   >
     <cropper-crosshair centered></cropper-crosshair>
     <cropper-handle action="move" theme-color="transparent"></cropper-handle>
