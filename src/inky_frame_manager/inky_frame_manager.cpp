@@ -137,6 +137,10 @@ InkyFrameManager::Event InkyFrameManager::poll() {
   }
   // -----
 
+  if (buttons_state[0] > 800) {
+    return InkyFrameManager::Event::WEATHER_REPORT;
+  }
+
   if (buttons_state[4] > 800) {
     return InkyFrameManager::Event::PRINT_IP_ADDRESS;
   }
@@ -250,7 +254,7 @@ void InkyFrameManager::print_message(std::string message) {
   task_param->instance = this;
   task_param->message = message;
 
-  std::cout << "print_message" << message << std::endl;
+  std::cout << "print_message:" << message << std::endl;
 
   xTaskCreate(
     InkyFrameManager::start_print_message_task,
@@ -354,7 +358,8 @@ int InkyFrameManager::update_image(int slot, std::string filename) {
 
 void InkyFrameManager::start_draw_image_task(void* param) {
   image_task_param* task_param = static_cast<image_task_param*>(param);
-  task_param->instance->draw_image_task(task_param->filename);
+  std::string filename = task_param->filename;
+  task_param->instance->draw_image_task(filename);
 
   vTaskDelete(task_param->led_task);
   delete task_param;

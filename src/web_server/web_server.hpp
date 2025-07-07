@@ -1,8 +1,11 @@
 #pragma once
 #include <string>
+#include <functional>
+
+#include "mg_wrapper.hpp"
 
 class WebServer {
-  public:  
+  public:
     enum Event {
       none,
       upload_image
@@ -13,17 +16,16 @@ class WebServer {
       int new_image_slot;
     };
 
-    WebServer();
-    ~WebServer();
+    WebServer(MgWrapper* mgr_wrapper);
     void start_server();
     void stop_server();
     void poll_data();
     int connect_wifi();
     std::string get_ip_address();
     WebServer::Message get_message();
+    
 
   private:
-    struct MgWrapper;
     MgWrapper* mg_wrapper;
     WebServer::Message msg;
     void clear_message();

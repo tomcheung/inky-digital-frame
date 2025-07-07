@@ -12,34 +12,29 @@
 #include "task.h"
 #include "mongoose.h"
 
-struct WebServer::MgWrapper {
-  mg_mgr mgr;
-};
-
-WebServer::WebServer(): mg_wrapper(new MgWrapper) {
-  auto mgr = &mg_wrapper->mgr;
+WebServer::WebServer(MgWrapper* mg_wrapper): mg_wrapper(mg_wrapper) {
+  auto mgr = mg_wrapper->mgr;
   msg = {WebServer::Event::none, -1};
 }
 
 void WebServer::start_server() {
   mg_log_set(MG_LL_INFO);
-  auto mgr = &mg_wrapper->mgr;
+  auto mgr = mg_wrapper->mgr;
 
   printf("start_server\n");
-  mg_mgr_init(mgr);
+  // mg_mgr_init(mgr);
   mg_http_listen(mgr, "http://0.0.0.0:80", WebServer::eventHandler, NULL); // Web listener
   mgr->userdata = this;
 }
 
 void WebServer::stop_server() {
-  auto mgr = mg_wrapper->mgr;
   printf("stop_server\n");
-  mg_mgr_free(&mgr);
-  delete mg_wrapper;
+  mg_mgr_free(mg_wrapper->mgr);
+  // delete mg_wrapper;
 }
 
 void WebServer::poll_data() {
-  mg_mgr_poll(&mg_wrapper->mgr, 50);
+  mg_mgr_poll(mg_wrapper->mgr, 50);
 }
 
 WebServer::Message WebServer::get_message() {

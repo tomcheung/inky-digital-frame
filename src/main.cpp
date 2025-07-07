@@ -15,6 +15,8 @@
 
 #include "inky_frame_manager.hpp"
 #include "web_server.hpp"
+#include "weather_report.hpp"
+#include "mg_wrapper.hpp"
 
 #define TEST_TASK_PRIORITY				( tskIDLE_PRIORITY + 1UL )
 #define TEST_TASK_STACK_SIZE			(( configSTACK_DEPTH_TYPE ) 2048)
@@ -27,8 +29,10 @@ InkyFrame inky;
 
 JPEGDEC jpeg;
 
-WebServer server;
+MgWrapper mg_wrapper = MgWrapper();
+WebServer server = WebServer(&mg_wrapper);
 InkyFrameManager inky_manager;
+WeatherReport weather_report = WeatherReport(&mg_wrapper, &inky);
 
 void blink_led(void * pvParameters) {
   InkyFrame::LED* p_led = (InkyFrame::LED*) pvParameters;
@@ -70,8 +74,6 @@ void main_task(__unused void *params) {
   }
 
   printf("done!\n");
-
-  printf("connect wifi\n");
 
   int wifi_result = server.connect_wifi();
 
@@ -115,6 +117,10 @@ void main_task(__unused void *params) {
         case WebServer::Event::none:
           break;
       }
+
+      if (weather_report.update()) {
+        continue;
+      }
     }
 
     if (event == WebServer::Event::none) {
@@ -143,6 +149,11 @@ void main_task(__unused void *params) {
           inky_manager.print_message(message);
           break;
         }
+        case InkyFrameManager::Event::WEATHER_REPORT:
+        {
+          weather_report.fetch_weather();
+          break;
+        }
          
         case InkyFrameManager::Event::NONE:
           break;
@@ -155,7 +166,7 @@ void main_task(__unused void *params) {
 
 void vLaunch(void) {
   TaskHandle_t task;
-  xTaskCreate(main_task, "TestMainThread", TEST_TASK_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &task);
+  xTaskCreate(main_task, "MainThread", TEST_TASK_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &task);
   vTaskStartScheduler();
 }
 

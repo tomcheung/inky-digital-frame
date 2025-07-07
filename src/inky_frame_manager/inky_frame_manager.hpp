@@ -12,7 +12,8 @@ class InkyFrameManager {
       IMAGE_C,
       IMAGE_D,
       IMAGE_E,
-      PRINT_IP_ADDRESS
+      PRINT_IP_ADDRESS,
+      WEATHER_REPORT,
     };
 
     void init(pimoroni::InkyFrame* inky);

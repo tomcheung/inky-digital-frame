@@ -26,8 +26,10 @@ add_subdirectory(src/web_server)
 
 add_executable(${NAME}
     src/main.cpp
-    src/inky_frame_manager.cpp
+    src/inky_frame_manager/inky_frame_manager.cpp
+    src/weather_report/weather_report.cpp
     src/mongoose/mongoose.c
+    src/mongoose/mg_random.c
     packed_fs.c
     ${SRC_FILES}
 )
@@ -43,7 +45,15 @@ include(libraries/bitmap_fonts/bitmap_fonts)
 include(libraries/hershey_fonts/hershey_fonts)
 include(libraries/inky_frame_7/inky_frame_7)
 
+file(GLOB FIRST_LEVEL_DIRS RELATIVE "${CMAKE_CURRENT_LIST_DIR}/src" "${CMAKE_CURRENT_LIST_DIR}/src/*")
+foreach(dir ${FIRST_LEVEL_DIRS})
+    if(IS_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/src/${dir}")
+        list(APPEND ALL_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/src/${dir}")
+    endif()
+endforeach()
+
 target_include_directories(${NAME} PRIVATE
+    ${ALL_INCLUDE_DIRS}
     ${CMAKE_CURRENT_LIST_DIR}/src/include
     ${CMAKE_CURRENT_LIST_DIR}/src/mongoose/include
 )
@@ -69,6 +79,7 @@ endif()
 # Don't forget to link the libraries you need!
 target_link_libraries(${NAME}
     pico_stdlib
+    pico_rand
     pico_cyw43_arch_lwip_sys_freertos
     jpegdec
     inky_frame_7
